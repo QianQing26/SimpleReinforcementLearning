@@ -73,7 +73,12 @@ if __name__ == "__main__":
 
     agent = QLearningAgent(state_size, action_size)
     print("Training......")
-    train_agent(env, agent, episodes=40000, save_path="agent.pkl")
+    train_agent(
+        env,
+        agent,
+        episodes=40000,
+        save_path="agent/Qlearning_agent_FrozenLake8x8-v1.pkl",
+    )
     print("\nTesting")
     test_agent(env, agent, episodes=10, max_steps=50)
 
