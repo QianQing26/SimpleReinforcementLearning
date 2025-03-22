@@ -54,7 +54,7 @@ def test_agent(env, agent, episodes=20, max_steps=50):
             state = next_state
             steps += 1
 
-            if terminated and reward == 1:
+            if terminated:
                 successes += 1
 
         total_steps += steps
@@ -69,8 +69,8 @@ if __name__ == "__main__":
 
     np.random.seed(42)
 
-    env_name = "FrozenLake8x8-v1"
-    env = gym.make(env_name, is_slippery=False)
+    env_name = "Taxi-v3"
+    env = gym.make(env_name)
 
     state_size = env.observation_space.n
     action_size = env.action_space.n
@@ -80,18 +80,16 @@ if __name__ == "__main__":
     reward_history = train_agent(
         env,
         agent,
-        episodes=30000,
-        save_path="agent/Qlearning_agent_FrozenLake8x8-v1.pkl",
+        episodes=25000,
+        save_path="agent/Qlearning_agent_Taxi-v3.pkl",
     )
     print("\nTesting")
     test_agent(env, agent, episodes=10, max_steps=50)
 
     env.close()
 
-    # 先对reward_history进行平滑处理
-    reward_history = np.convolve(reward_history, np.ones((100,)) / 100, mode="full")
     plt.plot(reward_history)
     plt.xlabel("Episodes")
     plt.ylabel("Total Reward")
-    plt.title("Total Reward on FrozenLake8x8-v1")
+    plt.title("Q Learning Agent on Taxi-v3")
     plt.show()

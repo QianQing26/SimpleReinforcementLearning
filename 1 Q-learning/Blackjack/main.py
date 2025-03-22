@@ -31,7 +31,7 @@ def train_agent(env, agent, episodes, save_path=None):
             print(
                 f"Episode: {episode+1},  Total reward: {total_reward},  Epsilon: {agent.epsilon}"
             )
-        reward_history.append(total_reward)
+            reward_history.append(total_reward)
     if save_path is not None:
         with open(save_path, "wb") as f:
             pickle.dump(agent, f)
@@ -54,7 +54,7 @@ def test_agent(env, agent, episodes=20, max_steps=50):
             state = next_state
             steps += 1
 
-            if terminated and reward == 1:
+            if terminated:
                 successes += 1
 
         total_steps += steps
@@ -69,29 +69,39 @@ if __name__ == "__main__":
 
     np.random.seed(42)
 
-    env_name = "FrozenLake8x8-v1"
-    env = gym.make(env_name, is_slippery=False)
+    env_name = "Blackjack-v1"
+    env = gym.make(env_name, natural=False, sab=False)
 
-    state_size = env.observation_space.n
+    state_size0, state_size1, state_size2 = (
+        env.observation_space[0].n,
+        env.observation_space[1].n,
+        env.observation_space[2].n,
+    )
     action_size = env.action_space.n
 
-    agent = QLearningAgent(state_size, action_size)
+    agent = QLearningAgent(
+        state_size0, action_size
+    )  # initialize agent and modify the qtable later
+    agent.set_q_table(np.zeros((state_size0, state_size1, state_size2, action_size)))
     print("Training......")
     reward_history = train_agent(
         env,
         agent,
-        episodes=30000,
-        save_path="agent/Qlearning_agent_FrozenLake8x8-v1.pkl",
+        episodes=60000,
+        save_path="agent/Qlearning_agent_Blackjack-v1.pkl",
     )
-    print("\nTesting")
+    print("\nTesting......")
     test_agent(env, agent, episodes=10, max_steps=50)
 
     env.close()
 
     # 先对reward_history进行平滑处理
-    reward_history = np.convolve(reward_history, np.ones((100,)) / 100, mode="full")
+    reward_history = np.array(reward_history)
+    reward_history = np.convolve(reward_history, np.ones(50) / 50, mode="full")
+
+    # 画出reward_history曲线
     plt.plot(reward_history)
     plt.xlabel("Episodes")
     plt.ylabel("Total Reward")
-    plt.title("Total Reward on FrozenLake8x8-v1")
+    plt.title("Q-learning Agent on Blackjack-v1")
     plt.show()
