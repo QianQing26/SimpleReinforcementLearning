@@ -9,19 +9,23 @@ import matplotlib.pyplot as plt
 import threading
 
 
+from collections import deque
+import random
+import numpy as np
+import threading
+
+
 class ReplayBuffer:
     def __init__(self, capacity):
         self.capacity = capacity
-        self.buffer = []
-        self.position = 0
+        self.buffer = deque(maxlen=capacity)  # 使用 deque 并设置最大长度
         self.lock = threading.Lock()
 
     def push(self, state, action, reward, next_state, done):
         with self.lock:
-            if len(self.buffer) < self.capacity:
-                self.buffer.append(None)
-            self.buffer[self.position] = (state, action, reward, next_state, done)
-            self.position = (self.position + 1) % self.capacity
+            self.buffer.append(
+                (state, action, reward, next_state, done)
+            )  # 直接追加到 deque
 
     def sample(self, batch_size):
         with self.lock:
@@ -52,7 +56,7 @@ class QNetwork(nn.Module):
         return self.fc(x)
 
 
-class DQNAgent:
+class DoubleDQNAgent:
     def __init__(
         self,
         env,
@@ -115,9 +119,19 @@ class DQNAgent:
         dones = torch.FloatTensor(dones).to(self.device)
 
         q_values = self.main_net(states)
-        next_q_values = self.target_net(next_states).detach()
+        next_q_values_target = self.target_net(next_states).detach()
+        next_q_values_mean = self.main_net(next_states).detach()
+
+        # 使用main_net选择下一个动作
+        next_action = next_q_values_mean.argmax(1)
+
+        # 使用target_net计算下一个动作的Q值
+        next_q_value = next_q_values_target.gather(1, next_action.unsqueeze(1)).squeeze(
+            1
+        )
+
         q_value = q_values.gather(1, actions.unsqueeze(1)).squeeze(1)
-        next_q_value = next_q_values.max(1)[0]
+
         expected_q_value = rewards + self.gamma * next_q_value * (1 - dones)
 
         loss = F.smooth_l1_loss(q_value, expected_q_value)

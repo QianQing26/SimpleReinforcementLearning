@@ -115,9 +115,19 @@ class DQNAgent:
         dones = torch.FloatTensor(dones).to(self.device)
 
         q_values = self.main_net(states)
-        next_q_values = self.target_net(next_states).detach()
+        next_q_values_target = self.target_net(next_states).detach()
+        next_q_values_mean = self.main_net(next_states).detach()
+
+        # 使用main_net选择下一个动作
+        next_action = next_q_values_mean.argmax(1)
+
+        # 使用target_net计算下一个动作的Q值
+        next_q_value = next_q_values_target.gather(1, next_action.unsqueeze(1)).squeeze(
+            1
+        )
+
         q_value = q_values.gather(1, actions.unsqueeze(1)).squeeze(1)
-        next_q_value = next_q_values.max(1)[0]
+
         expected_q_value = rewards + self.gamma * next_q_value * (1 - dones)
 
         loss = F.smooth_l1_loss(q_value, expected_q_value)
@@ -134,12 +144,3 @@ class DQNAgent:
 
     def update_target_net(self):
         self.target_net.load_state_dict(self.main_net.state_dict())
-
-
-if __name__ == "__main__":
-    # 测试QNetwork是否正确
-    input_dim = 4
-    output_dim = 2
-    hidden_layers = [8, 4]
-    net = QNetwork(input_dim, output_dim, hidden_layers)
-    print(net)

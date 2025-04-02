@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
+import threading
 
 
 class ReplayBuffer:
@@ -13,17 +14,20 @@ class ReplayBuffer:
         self.capacity = capacity
         self.buffer = []
         self.position = 0
+        self.lock = threading.Lock()
 
     def push(self, state, action, reward, next_state, done):
-        if len(self.buffer) < self.capacity:
-            self.buffer.append(None)
-        self.buffer[self.position] = (state, action, reward, next_state, done)
-        self.position = (self.position + 1) % self.capacity
+        with self.lock:
+            if len(self.buffer) < self.capacity:
+                self.buffer.append(None)
+            self.buffer[self.position] = (state, action, reward, next_state, done)
+            self.position = (self.position + 1) % self.capacity
 
     def sample(self, batch_size):
-        batch = random.sample(self.buffer, batch_size)
-        states, actions, rewards, next_states, dones = map(np.stack, zip(*batch))
-        return states, actions, rewards, next_states, dones
+        with self.lock:
+            batch = random.sample(self.buffer, batch_size)
+            states, actions, rewards, next_states, dones = map(np.stack, zip(*batch))
+            return states, actions, rewards, next_states, dones
 
     def __len__(self):
         return len(self.buffer)
@@ -60,6 +64,7 @@ class DQNAgent:
         lr=0.001,
         buffer_capacity=10000,
         batch_size=64,
+        update_target_freq=100,
     ):
         self.env = env
         self.gamma = gamma
@@ -83,6 +88,9 @@ class DQNAgent:
 
         self.optimizer = optim.Adam(self.main_net.parameters(), lr=lr)
         self.memory = ReplayBuffer(buffer_capacity)
+
+        self.steps_done = 0
+        self.update_target_frequency = update_target_freq
 
     def select_action(self, state):
         if np.random.random() < self.epsilon:
@@ -112,13 +120,17 @@ class DQNAgent:
         next_q_value = next_q_values.max(1)[0]
         expected_q_value = rewards + self.gamma * next_q_value * (1 - dones)
 
-        loss = (q_value - expected_q_value).pow(2).mean()
+        loss = F.smooth_l1_loss(q_value, expected_q_value)
 
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
 
         self.epsilon = max(self.epsilon_end, self.epsilon_decay * self.epsilon)
+        self.steps_done += 1
+
+        if self.steps_done % self.update_target_frequency == 0:
+            self.update_target_net()
 
     def update_target_net(self):
         self.target_net.load_state_dict(self.main_net.state_dict())

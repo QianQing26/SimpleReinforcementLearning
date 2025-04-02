@@ -3,7 +3,7 @@ import numpy as np
 import torch
 from tqdm import tqdm
 import matplotlib.pyplot as plt
-from DQN import DQNAgent
+from DoubleDQN import DoubleDQNAgent
 
 
 def train_dqn(env, agent, num_episodes=1000, max_steps=200):
@@ -54,6 +54,7 @@ def load_agent(agent, main_net_path, target_net_path):
     # agent.update_target_net()
     agent.target_net.eval()
     agent.epsilon = agent.epsilon_end
+    print("Agent loaded successfully")
     return agent
 
 
@@ -72,18 +73,22 @@ def plot_rewards(rewards, title="Training rewards"):
 
 if __name__ == "__main__":
     env = gym.make("CartPole-v1")
-    agent = DQNAgent(env, update_target_freq=600)
+    agent = DoubleDQNAgent(env, update_target_freq=600)
     agent = load_agent(
         agent,
-        "2 DQN/CartPole/dqn_agent_main_net.pth",
-        "2 DQN/CartPole/dqn_agent_target_net.pth",
+        "3 DoubleDQN/CartPole/dqn_agent_main_net.pth",
+        "3 DoubleDQN/CartPole/dqn_agent_target_net.pth",
     )
-    train_rewards = train_dqn(env, agent, num_episodes=300, max_steps=600)
+    train_rewards = train_dqn(env, agent, num_episodes=100, max_steps=600)
     plot_rewards(train_rewards, title="Training rewards")
     env.close()
-    torch.save(agent.main_net.state_dict(), "2 DQN/CartPole/dqn_agent_main_net.pth")
-    torch.save(agent.target_net.state_dict(), "2 DQN/CartPole/dqn_agent_target_net.pth")
+    torch.save(
+        agent.main_net.state_dict(), "3 DoubleDQN/CartPole/dqn_agent_main_net.pth"
+    )
+    torch.save(
+        agent.target_net.state_dict(), "3 DoubleDQN/CartPole/dqn_agent_target_net.pth"
+    )
     env = gym.make("CartPole-v1", render_mode="human")
     test_rewards = test_dqn(env, agent)
-    plot_rewards(test_rewards, title="Testing rewards")
+    plot_rewards(test_rewards, title="Double DQN Testing rewards")
     env.close()
