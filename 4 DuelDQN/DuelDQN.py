@@ -33,9 +33,9 @@ class ReplayBuffer:
         return len(self.buffer)
 
 
-class QNetwork(nn.Module):
+class DuelQNetwork(nn.Module):
     def __init__(self, input_dim, output_dim, hidden_layers=[]):
-        super(QNetwork, self).__init__()
+        super(DuelQNetwork, self).__init__()
         # 共享网络层
         if not hidden_layers:
             hidden_layers = [128]  # 默认添加一个隐藏层
@@ -92,12 +92,12 @@ class DuelDQNAgent:
         self.state_dim = env.observation_space.shape[0]
         self.action_dim = env.action_space.n
 
-        self.main_net = QNetwork(self.state_dim, self.action_dim, hidden_layers).to(
+        self.main_net = DuelQNetwork(self.state_dim, self.action_dim, hidden_layers).to(
             self.device
         )
-        self.target_net = QNetwork(self.state_dim, self.action_dim, hidden_layers).to(
-            self.device
-        )
+        self.target_net = DuelQNetwork(
+            self.state_dim, self.action_dim, hidden_layers
+        ).to(self.device)
         self.target_net.load_state_dict(self.main_net.state_dict())
         self.target_net.eval()
 
@@ -166,5 +166,5 @@ if __name__ == "__main__":
     input_dim = 4
     output_dim = 2
     hidden_layers = [8, 4]
-    net = QNetwork(input_dim, output_dim, hidden_layers)
+    net = DuelQNetwork(input_dim, output_dim, hidden_layers)
     print(net)
