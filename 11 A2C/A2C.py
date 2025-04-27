@@ -55,7 +55,6 @@ class A2CAgent:
         value_lr=1e-3,
         gamma=0.99,
     ):
-        # self.device = "cpu"
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.policy_net = PolicyNetwork(input_dim, output_dim, hidden_dim).to(
             self.device
