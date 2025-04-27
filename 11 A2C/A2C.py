@@ -26,33 +26,33 @@ class PolicyNetwork(nn.Module):
         return F.softmax(self.layers(x), dim=-1)
 
 
-class QNetwork(nn.Module):
-    def __init__(self, input_dim, output_dim, hidden_dim=[128]):
-        super(QNetwork, self).__init__()
+class ValueNetwork(nn.Module):
+    def __init__(self, input_dim, hidden_dim=[128]):
+        super(ValueNetwork, self).__init__()
         layers = []
         prev_dim = input_dim
         for dim in hidden_dim:
             layers.append(nn.Linear(prev_dim, dim))
             layers.append(nn.ReLU())
             prev_dim = dim
-        layers.append(nn.Linear(prev_dim, output_dim))
+        layers.append(nn.Linear(prev_dim, 1))
         self.layers = nn.Sequential(*layers)
 
     def forward(self, x):
-        return self.layers(x)
+        return self.layers(x).squeeze(-1)
 
 
-SavedAction = namedtuple("SavedAction", ["log_prob", "state", "action", "reward"])
+SavedAction = namedtuple("SavedAction", ["log_prob", "state", "reward"])
 
 
-class QACAgent:
+class A2CAgent:
     def __init__(
         self,
         input_dim,
         output_dim,
         hidden_dim=[128],
         policy_lr=1e-3,
-        q_lr=1e-3,
+        value_lr=1e-3,
         gamma=0.99,
     ):
         # self.device = "cpu"
@@ -60,9 +60,9 @@ class QACAgent:
         self.policy_net = PolicyNetwork(input_dim, output_dim, hidden_dim).to(
             self.device
         )
-        self.q_net = QNetwork(input_dim, output_dim, hidden_dim).to(self.device)
+        self.value_net = ValueNetwork(input_dim, hidden_dim).to(self.device)
         self.policy_optimizer = optim.Adam(self.policy_net.parameters(), lr=policy_lr)
-        self.q_optimizer = optim.Adam(self.q_net.parameters(), lr=q_lr)
+        self.value_optimizer = optim.Adam(self.value_net.parameters(), lr=value_lr)
         self.gamma = gamma
         self.saved_actions = []
 
@@ -71,15 +71,11 @@ class QACAgent:
         probs = self.policy_net(state_tensor)
         m = torch.distributions.Categorical(probs)
         action = m.sample()
-        self.saved_actions.append(
-            SavedAction(m.log_prob(action), state, action.item(), None)
-        )
+        self.saved_actions.append(SavedAction(m.log_prob(action), state, None))
         return action.item()
 
     def update(self):
         R = 0
-        policy_loss = []
-        q_loss = []
         returns = []
 
         for r in reversed([sa.reward for sa in self.saved_actions]):
@@ -89,25 +85,28 @@ class QACAgent:
         returns = torch.tensor(returns).float().to(self.device)
         returns = (returns - returns.mean()) / (returns.std() + 1e-7)
 
-        for saved_action, R in zip(self.saved_actions, returns):
-            log_prob, state, action, _ = saved_action
-            state_tensor = torch.from_numpy(state).float().unsqueeze(0).to(self.device)
-            q_values = self.q_net(state_tensor)
-            q_value = q_values[0, action]
+        policy_losses = []
+        value_losses = []
 
-            policy_loss.append(-log_prob * q_value.detach())
-            q_loss.append(F.mse_loss(q_value, R))
+        for saved_action, R in zip(self.saved_actions, returns):
+            log_prob, state, _ = saved_action
+            state_tensor = torch.from_numpy(state).float().unsqueeze(0).to(self.device)
+            value = self.value_net(state_tensor)
+            advantage = R - value
+
+            policy_losses.append(-log_prob * advantage.detach())
+            value_losses.append(F.mse_loss(value, R))
 
         self.policy_optimizer.zero_grad()
-        self.q_optimizer.zero_grad()
+        self.value_optimizer.zero_grad()
 
-        policy_loss = torch.cat(policy_loss).sum()
-        q_loss = torch.stack(q_loss).sum()
+        policy_loss = torch.cat(policy_losses).sum()
+        value_loss = torch.stack(value_losses).sum()
 
         policy_loss.backward()
-        q_loss.backward()
+        value_loss.backward()
 
         self.policy_optimizer.step()
-        self.q_optimizer.step()
+        self.value_optimizer.step()
 
         self.saved_actions.clear()
