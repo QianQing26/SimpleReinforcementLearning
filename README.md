@@ -63,8 +63,8 @@ To run an algorithm, simply run the corresponding ```main.py```.
 
 ## Future Work
 - **🎨 More Visualizations** : Add more visualizations to make the learning process more intuitive and easier to understand.
-- **🐍 More Algorithms** : Implement more algorithms, such as A2C, A3C, and PPO.
-- **🤖 More Environments** : Add more environments, such as Atari games, MuJoCo, and PyBullet.
+- **🐍 More Algorithms** : Implement more algorithms
+- **🤖 More Environments** : Add more environments, such as MuJoCo and PyBullet.
 - Include model-saving and checkpointing functionality.
 - (Optional) Provide Colab notebooks for faster testing
 
